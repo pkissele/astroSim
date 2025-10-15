@@ -1,16 +1,36 @@
-cmake_minimum_required(VERSION 3.5)
-project( run_me )
-find_package( OpenCV REQUIRED )
-message("OpenCV version: ${OpenCV_VERSION}")
+cmake_minimum_required(VERSION 3.14)
+project(AstroSim LANGUAGES CXX)
 
-# to set file, run `cmake -DFILE=filename.cpp`, and then to build run `cmake --build .`
-set(FILE "main.c" CACHE STRING "C file to compile")
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_BUILD_TYPE Release)
 
-message(STATUS "Compiling file: ${FILE}")
+# Find dependencies
+find_package(PkgConfig REQUIRED)
+find_package(GSL REQUIRED)
+find_package(OpenMP REQUIRED)
+find_package(Eigen3 REQUIRED NO_MODULE)
 
-add_executable(run ${FILE})
+pkg_check_modules(CAIRO REQUIRED cairo)
 
-target_link_libraries(run ${OpenCV_LIBS})
+include_directories(${CAIRO_INCLUDE_DIRS})
 
-# add_executable( run_me current_file.cpp )
-# target_link_libraries( run_me ${OpenCV_LIBS} )
+# Add your code
+add_executable(runSim
+    src/main.cpp
+    # src/integrator.cpp
+    # src/model.cpp
+)
+
+# Link libraries
+target_link_libraries(runSim
+    GSL::gsl
+    GSL::gslcblas
+    OpenMP::OpenMP_CXX
+	Eigen3::Eigen
+)
+
+target_link_libraries(runSim ${CAIRO_LIBRARIES})
+
+# Optimization flags
+target_compile_options(runSim PRIVATE -O3 -march=native -ffast-math)
