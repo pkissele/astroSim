@@ -34,7 +34,7 @@ struct Body {
 };
 
 
-const double G = 1; // Arbitrary for now
+const double G = 9.8; // Arbitrary for now
 const double pi = 3.14159265;
 
 
@@ -51,8 +51,8 @@ void draw_frame(const std::vector<Body>& bodies, const std::string& filename) {
     // draw particles
     cairo_set_source_rgb(cr, 1,1,1);
     for (auto& p : bodies) {
-        double px = (p.pos[0]+10)/20 * width;  // map [-10,10] -> [0,width]
-        double py = (p.pos[1]+10)/20 * height; // map [-10,10] -> [0,height]
+        double px = (p.pos[0])/20 * width;  // map [0,20] -> [0,width]
+        double py = height-((p.pos[1])/20 * height); // map [0,20] -> [0,height]
         cairo_arc(cr, px, py, 3, 0, 2*pi);
         cairo_fill(cr);
     }
@@ -64,28 +64,39 @@ void draw_frame(const std::vector<Body>& bodies, const std::string& filename) {
 
 
 int main() {
-	const int N = 2;
+	const int N = 1;
 	vector<Body> bodies(N);
 
-	bodies[0] = Body{1, Vec2(-5, 0), Vec2(1, 0)};
-    bodies[1] = Body{1, Vec2(5, 0), Vec2(-1, 0)};
+	bodies[0] = Body{10, Vec2(2, 10), Vec2(3, 0)};
+    // bodies[1] = Body{1, Vec2(5, 0), Vec2(-1, 0)};
 
+    vector<vector<double>> extForces(1);
+    extForces[0] = {0, -G};
 
-	double t=0;
+	double t = 0;
     int endT = 5;
-    double dt=1;
+    double dt = 0.01;
     int nframes = (endT-t)/dt;
 
     draw_frame(bodies, "output/frame_" + std::to_string(0) + ".png");
 
     for (int frame=1; frame<nframes; ++frame) {
         double ti = t + dt;
-		cout << frame << endl;
+		// cout << frame << endl;
 
         // update particles positions
-        for (int i=0; i<N; ++i) {
+        for (int i = 0; i < N; i++) {
+            for (int f=0; f<extForces.size(); f++) {
+                bodies[i].vel[0] += bodies[i].mass * extForces[f][0]*dt;
+                bodies[i].vel[1] += bodies[i].mass * extForces[f][1]*dt;
+            }
             bodies[i].pos[0] += bodies[i].vel[0]*dt;
             bodies[i].pos[1] += bodies[i].vel[1]*dt;
+
+            if((bodies[i].pos[1] < 0) && (bodies[i].vel[1] < 0)) {
+                cout << "flipped" << endl;
+                bodies[i].vel[1] *= -1;
+            }
 		}
 
         // save frame
