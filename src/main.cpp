@@ -38,7 +38,7 @@ const double G = 9.8; // Arbitrary for now
 const double pi = 3.14159265;
 
 
-void draw_frame(const std::vector<Body>& bodies, const std::string& filename) {
+void draw_frames(const vector<vector<Vec2>>& positions, const std::string& folder, int frames) {
     int width = 800;
     int height = 600;
     cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
@@ -48,42 +48,52 @@ void draw_frame(const std::vector<Body>& bodies, const std::string& filename) {
     cairo_set_source_rgb(cr, 0, 0, 0);
     cairo_paint(cr);
 
-    // draw particles
-    cairo_set_source_rgb(cr, 1,1,1);
-    for (auto& p : bodies) {
-        double px = (p.pos[0])/20 * width;  // map [0,20] -> [0,width]
-        double py = height-((p.pos[1])/20 * height); // map [0,20] -> [0,height]
-        cairo_arc(cr, px, py, 3, 0, 2*pi);
-        cairo_fill(cr);
-    }
+    int frameSkip = (int)positions.size()/frames;
+    for(int i = 0; i < frames; i++) {
+        // cout << "Frame " << i << endl;
 
-    cairo_surface_write_to_png(surface, filename.c_str());
+        int cFrame = i*frameSkip;
+
+
+        // draw particles
+        cairo_set_source_rgb(cr, 1,1,1);
+        for (auto& p : positions[cFrame]) {
+            double px = (p[0])/20 * width;  // map [0,20] -> [0,width]
+            double py = height-((p[1])/20 * height); // map [0,20] -> [0,height]
+            cairo_arc(cr, px, py, 3, 0, 2*pi);
+            cairo_fill(cr);
+        }
+
+        string filename = folder + "/frame_" + to_string(i) + ".png";
+
+        cairo_surface_write_to_png(surface, filename.c_str());
+    }
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
 }
 
 
 int main() {
-	const int N = 1;
-	vector<Body> bodies(N);
+    const int N = 1;
+    vector<Body> bodies(N);
 
-	bodies[0] = Body{10, Vec2(2, 10), Vec2(3, 0)};
+    bodies[0] = Body{10, Vec2(2, 10), Vec2(3, 0)};
     // bodies[1] = Body{1, Vec2(5, 0), Vec2(-1, 0)};
 
     vector<vector<double>> extForces(1);
     extForces[0] = {0, -G};
 
-	double t = 0;
+    double t = 0;
     int endT = 5;
-    double dt = 0.01;
-    int nframes = (endT-t)/dt;
+    double dt = 0.00001;
+    int timeSteps = (endT-t)/dt;
 
-    draw_frame(bodies, "output/frame_" + std::to_string(0) + ".png");
+    cout << "Simulating with " << timeSteps << " steps and a time step of " << dt << endl;
 
-    for (int frame=1; frame<nframes; ++frame) {
+    vector<vector<Vec2>> positions(timeSteps, vector<Vec2>(N));
+
+    for (int frame=0; frame < timeSteps; frame++) {
         double ti = t + dt;
-		// cout << frame << endl;
-
         // update particles positions
         for (int i = 0; i < N; i++) {
             for (int f=0; f<extForces.size(); f++) {
@@ -94,18 +104,21 @@ int main() {
             bodies[i].pos[1] += bodies[i].vel[1]*dt;
 
             if((bodies[i].pos[1] < 0) && (bodies[i].vel[1] < 0)) {
-                cout << "flipped" << endl;
                 bodies[i].vel[1] *= -1;
             }
-		}
-
-        // save frame
-        draw_frame(bodies, "output/frame_" + std::to_string(frame) + ".png");
+            positions[frame][i] = bodies[i].pos;
+        }
     }
 
-    string pyComm = "python img2gif.py output " + to_string(nframes) + " " + to_string(dt*1000);
+    cout << "Simulation complete, begin drawing" << endl;
 
+    int FPS = 30;
+    int nFrames = endT * FPS;
+
+    draw_frames(positions, "output/", nFrames);
+
+    string pyComm = "python img2gif.py output " + to_string(nFrames) + " " + to_string((int)(1000/FPS));
     system(pyComm.c_str());
 
-	return 0;
+    return 0;
 }

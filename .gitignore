@@ -1,5 +1,7 @@
 .vscode
 *build
+*output
+*movie.gif
 
 CMakeLists.txt.user
 CMakeCache.txt
