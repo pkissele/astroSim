@@ -37,11 +37,17 @@ struct Body {
 const double G = 9.8; // Arbitrary for now
 const double pi = 3.14159265;
 
+// Display output dimensions
+const int screenH = 600;
+const int screenW = 600;
+
+/// Object space "view" dimensions
+const int viewH = 20;
+const int viewW = 20;
+
 
 void draw_frames(const vector<vector<Vec2>>& positions, const std::string& folder, int frames) {
-    int width = 800;
-    int height = 600;
-    cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+    cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, screenW, screenH);
     cairo_t* cr = cairo_create(surface);
 
     // background
@@ -58,8 +64,8 @@ void draw_frames(const vector<vector<Vec2>>& positions, const std::string& folde
         // draw particles
         cairo_set_source_rgb(cr, 1,1,1);
         for (auto& p : positions[cFrame]) {
-            double px = (p[0])/20 * width;  // map [0,20] -> [0,width]
-            double py = height-((p[1])/20 * height); // map [0,20] -> [0,height]
+            double px = (p[0])/viewW * screenW;  // map [0,20] -> [0,width]
+            double py = screenH-((p[1])/viewH * screenH); // map [0,20] -> [0,height]
             cairo_arc(cr, px, py, 3, 0, 2*pi);
             cairo_fill(cr);
         }
@@ -74,19 +80,20 @@ void draw_frames(const vector<vector<Vec2>>& positions, const std::string& folde
 
 
 int main() {
-    const int N = 1;
+    const int N = 2;
     vector<Body> bodies(N);
 
-    bodies[0] = Body{10, Vec2(2, 10), Vec2(3, 0)};
-    // bodies[1] = Body{1, Vec2(5, 0), Vec2(-1, 0)};
+    bodies[0] = Body{10, Vec2(18, 18), Vec2(0, 0)};
+    bodies[1] = Body{10, Vec2(2, 2), Vec2(0, 0)};
 
     vector<vector<double>> extForces(1);
-    extForces[0] = {0, -G};
+    extForces[0] = {0, 0};
 
     double t = 0;
-    int endT = 5;
-    double dt = 0.00001;
+    int endT = 10;
+    double dt = 1e-5;
     int timeSteps = (endT-t)/dt;
+
 
     cout << "Simulating with " << timeSteps << " steps and a time step of " << dt << endl;
 
@@ -96,16 +103,42 @@ int main() {
         double ti = t + dt;
         // update particles positions
         for (int i = 0; i < N; i++) {
-            for (int f=0; f<extForces.size(); f++) {
-                bodies[i].vel[0] += bodies[i].mass * extForces[f][0]*dt;
-                bodies[i].vel[1] += bodies[i].mass * extForces[f][1]*dt;
+            Vec2 accel = {0, 0};
+
+            for (int f = 0; f < extForces.size(); f++) {
+                accel[0] += extForces[f][0]*dt;
+                accel[1] += extForces[f][1]*dt;
             }
+
+
+            // Gravity between bodies
+            for (int j = 0; j < N; j++) {
+                if(j == i) continue;
+                Vec2 dir = {bodies[j].pos[0] - bodies[i].pos[0], bodies[j].pos[1] - bodies[i].pos[1]};
+                double distSq = pow(bodies[i].pos[0]-bodies[j].pos[0], 2)+pow(bodies[i].pos[1]-bodies[j].pos[1], 2);
+                double gravMag = bodies[j].mass * bodies[i].mass / distSq;
+                accel[0] += (dir[0]/sqrt(distSq)) * gravMag;
+                accel[1] += (dir[1]/sqrt(distSq)) * gravMag;
+            }
+
+            bodies[i].vel[0] += accel[0]*dt;
+            bodies[i].vel[1] += accel[1]*dt;
+
             bodies[i].pos[0] += bodies[i].vel[0]*dt;
             bodies[i].pos[1] += bodies[i].vel[1]*dt;
 
-            if((bodies[i].pos[1] < 0) && (bodies[i].vel[1] < 0)) {
-                bodies[i].vel[1] *= -1;
-            }
+            // if((bodies[i].pos[1] < 0) && (bodies[i].vel[1] < 0)) {
+            //     bodies[i].vel[1] *= -1;
+            // }
+            // else if((bodies[i].pos[1] > viewH) && (bodies[i].vel[1] > 0)) {
+            //     bodies[i].vel[1] *= -1;
+            // }
+            // else if((bodies[i].pos[0] < 0) && (bodies[i].vel[0] < 0)) {
+            //     bodies[i].vel[0] *= -1;
+            // }
+            // else if((bodies[i].pos[0] > viewW) && (bodies[i].vel[0] > 0)) {
+            //     bodies[i].vel[0] *= -1;
+            // }
             positions[frame][i] = bodies[i].pos;
         }
     }
