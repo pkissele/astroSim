@@ -34,7 +34,12 @@ struct Body {
 };
 
 
-const double G = 9.8; // Arbitrary for now
+std::mt19937 rng(std::random_device{}());  // random seed
+// std::mt19937 rng(0);  // fixed seed
+std::uniform_real_distribution<double> randDist(0.0, 1.0);
+
+
+const double G = 1; // Arbitrary for now
 const double pi = 3.14159265;
 
 // Display output dimensions
@@ -57,6 +62,9 @@ void draw_frames(const vector<vector<Vec2>>& positions, const std::string& folde
     int frameSkip = (int)positions.size()/frames;
     for(int i = 0; i < frames; i++) {
         // cout << "Frame " << i << endl;
+        cairo_set_source_rgb(cr, 0, 0, 0);
+        cairo_paint(cr);
+
 
         int cFrame = i*frameSkip;
 
@@ -80,19 +88,30 @@ void draw_frames(const vector<vector<Vec2>>& positions, const std::string& folde
 
 
 int main() {
-    const int N = 2;
+    const int N = 10;
     vector<Body> bodies(N);
 
-    bodies[0] = Body{10, Vec2(18, 18), Vec2(0, 0)};
-    bodies[1] = Body{10, Vec2(2, 2), Vec2(0, 0)};
+    // bodies[0] = Body{10, Vec2(18, 10), Vec2(0, 0)};
+    // bodies[1] = Body{10, Vec2(2, 2), Vec2(5, 0)};
+    // bodies[2] = Body{10, Vec2(10, 10), Vec2(0, 0)};
+    // bodies[3] = Body{10, Vec2(2, 10), Vec2(0, 0)};
+
+    for(int b = 0; b < N; b++) {
+        bodies[b] = Body{10, Vec2(randDist(rng)*20, randDist(rng)*20), Vec2(0, 0)};
+    }
 
     vector<vector<double>> extForces(1);
     extForces[0] = {0, 0};
 
+    double collisionRad = 0.1;
+
     double t = 0;
     int endT = 10;
-    double dt = 1e-5;
+    double dt = 1e-6;
     int timeSteps = (endT-t)/dt;
+
+    const double gravEpsilon = 0.1;
+    const double gravEpsilon2 = pow(gravEpsilon, 2);
 
 
     cout << "Simulating with " << timeSteps << " steps and a time step of " << dt << endl;
@@ -110,13 +129,18 @@ int main() {
                 accel[1] += extForces[f][1]*dt;
             }
 
-
+            bool collide = false;
             // Gravity between bodies
             for (int j = 0; j < N; j++) {
                 if(j == i) continue;
                 Vec2 dir = {bodies[j].pos[0] - bodies[i].pos[0], bodies[j].pos[1] - bodies[i].pos[1]};
                 double distSq = pow(bodies[i].pos[0]-bodies[j].pos[0], 2)+pow(bodies[i].pos[1]-bodies[j].pos[1], 2);
-                double gravMag = bodies[j].mass * bodies[i].mass / distSq;
+                // if(distSq <= pow(collisionRad, 2)) {
+                //     collide = true;
+                // }
+
+                // Softened gravity: G * m1 * m2 * r/((r^2+eps^2)^3/2)
+                double gravMag = G * bodies[j].mass * bodies[i].mass * (sqrt(distSq)) / pow(distSq + gravEpsilon2, 1.5);
                 accel[0] += (dir[0]/sqrt(distSq)) * gravMag;
                 accel[1] += (dir[1]/sqrt(distSq)) * gravMag;
             }
@@ -124,21 +148,26 @@ int main() {
             bodies[i].vel[0] += accel[0]*dt;
             bodies[i].vel[1] += accel[1]*dt;
 
+            if(collide) {
+                bodies[i].vel[0] *= -1;
+                bodies[i].vel[1] *= -1;
+            }
+
             bodies[i].pos[0] += bodies[i].vel[0]*dt;
             bodies[i].pos[1] += bodies[i].vel[1]*dt;
 
-            // if((bodies[i].pos[1] < 0) && (bodies[i].vel[1] < 0)) {
-            //     bodies[i].vel[1] *= -1;
-            // }
-            // else if((bodies[i].pos[1] > viewH) && (bodies[i].vel[1] > 0)) {
-            //     bodies[i].vel[1] *= -1;
-            // }
-            // else if((bodies[i].pos[0] < 0) && (bodies[i].vel[0] < 0)) {
-            //     bodies[i].vel[0] *= -1;
-            // }
-            // else if((bodies[i].pos[0] > viewW) && (bodies[i].vel[0] > 0)) {
-            //     bodies[i].vel[0] *= -1;
-            // }
+            if((bodies[i].pos[1] < 0) && (bodies[i].vel[1] < 0)) {
+                bodies[i].vel[1] *= -1;
+            }
+            else if((bodies[i].pos[1] > viewH) && (bodies[i].vel[1] > 0)) {
+                bodies[i].vel[1] *= -1;
+            }
+            else if((bodies[i].pos[0] < 0) && (bodies[i].vel[0] < 0)) {
+                bodies[i].vel[0] *= -1;
+            }
+            else if((bodies[i].pos[0] > viewW) && (bodies[i].vel[0] > 0)) {
+                bodies[i].vel[0] *= -1;
+            }
             positions[frame][i] = bodies[i].pos;
         }
     }
