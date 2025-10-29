@@ -106,7 +106,7 @@ int main() {
     double collisionRad = 0.1;
 
     double t = 0;
-    int endT = 10;
+    double endT = 1;
     double dt = 1e-6;
     int timeSteps = (endT-t)/dt;
 
@@ -119,6 +119,9 @@ int main() {
     vector<vector<Vec2>> positions(timeSteps, vector<Vec2>(N));
 
     for (int frame=0; frame < timeSteps; frame++) {
+        if(frame%((int)timeSteps/10) == 0) {
+            cout << (int)(100 * frame/timeSteps) << "\% complete" << endl;
+        }
         double ti = t + dt;
         // update particles positions
         for (int i = 0; i < N; i++) {
@@ -141,6 +144,7 @@ int main() {
 
                 // Softened gravity: G * m1 * m2 * r/((r^2+eps^2)^3/2)
                 double gravMag = G * bodies[j].mass * bodies[i].mass * (sqrt(distSq)) / pow(distSq + gravEpsilon2, 1.5);
+                // double gravMag = G * bodies[j].mass * bodies[i].mass / distSq;
                 accel[0] += (dir[0]/sqrt(distSq)) * gravMag;
                 accel[1] += (dir[1]/sqrt(distSq)) * gravMag;
             }
@@ -175,7 +179,8 @@ int main() {
     cout << "Simulation complete, begin drawing" << endl;
 
     int FPS = 30;
-    int nFrames = endT * FPS;
+    double playback = 4; //inverse
+    int nFrames = endT * FPS * playback;
 
     draw_frames(positions, "output/", nFrames);
 
